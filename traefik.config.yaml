@@ -15,7 +15,7 @@ routers:
     photos:
       entryPoints:
         - "https"
-      rule: "Host(`photos.191412.xyz`)"
+      rule: "Host(`photos.domain.name`)"
       middlewares:
         - default-headers
         - https-redirectscheme
@@ -26,7 +26,7 @@ routers:
     n8n:
       entryPoints:
         - "https"
-      rule: "Host(`n8n.191412.xyz`)"
+      rule: "Host(`n8n.domain.name`)"
       middlewares:
         - default-headers
         - https-redirectscheme
