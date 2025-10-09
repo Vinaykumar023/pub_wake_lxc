@@ -1,4 +1,4 @@
-# Wake-LXC: Proxmox Container Auto Start/Stop Service
+# Wake-LXC: Proxmox Container On-Demand Auto Start/Stop Service
 
 **Wake-LXC** is a smart proxy service that automatically starts and stops Proxmox LXC containers based on incoming traffic, saving resources while maintaining seamless user access.
 
