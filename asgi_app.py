@@ -887,9 +887,6 @@ async def starting_page(request: Request):
         let eventSource = null;
         let serverElapsedSeconds = 0;
 
-        let containerBooting = false;
-        let serviceInitializing = false;
-
         const statusText = document.getElementById('status-text');
         const details = document.getElementById('details');
         const container = document.getElementById('main-container');
@@ -921,40 +918,38 @@ async def starting_page(request: Request):
             eventSource.onmessage = (event) => {{
                 try {{
                     const data = JSON.parse(event.data);
-                    const msg = data.message;
                     
+                    // Always update timer if elapsed is provided
                     if (data.elapsed !== undefined) {{
                         updateTimer(data.elapsed);
                     }}
 
-                    if (msg.includes("is stopped, starting now") || msg.includes("Sending start command") || msg.includes("start command sent")) {{
-                        containerBooting = true;
-                        if (checkCount < 2) {{
-                            updateStatus("Container booting...");
-                        }}
-                    }} else if (msg.includes("running") || msg.includes("waiting for service")) {{
-                        serviceInitializing = true;
-                        containerBooting = false;
-                        if (checkCount >= 2) {{
-                            updateStatus("Service initializing...");
-                        }}
-                    }} else if (msg.includes("Cannot connect") || msg.includes("Failed") || msg.includes("failure state")) {{
-                        updateStatus(`Error: ${{msg}}`, true);
-                        details.innerHTML = "Check container logs or contact support";
-                    }} else if (msg.includes("authentication failed")) {{
-                        updateStatus("Authentication error", true);
-                        details.innerHTML = "Check Proxmox API token configuration";
-                    }} else if (data.level === "error") {{
-                        updateStatus(`Error: ${{msg}}`, true);
-                        details.innerHTML = "An error occurred during startup";
+                    // Skip updates for timer-only events
+                    if (data.level === 'timer') {{
+                        return;
                     }}
+
+                    const msg = data.message;
+
+                    // Handle error-level events
+                    if (data.level === 'error') {{
+                        updateStatus(`Error: ${{msg}}`, true);
+                        details.innerHTML = 'Check container logs or contact support';
+                        return;
+                    }}
+
+                    // Update status for ALL non-timer SSE messages
+                    if (msg && msg.trim()) {{
+                        updateStatus(msg);
+                    }}
+                    
                 }} catch (e) {{
-                    console.error("SSE parse error", e);
+                    console.error("SSE parse error:", e);
                 }}
             }};
 
             eventSource.onerror = (error) => {{
-                console.error("SSE error", error);
+                console.error("SSE error:", error);
                 eventSource.close();
             }};
         }}
@@ -977,18 +972,9 @@ async def starting_page(request: Request):
                     return;
                 }}
 
-                if (checkCount < 2) {{
-                    updateStatus("Container booting...");
-                }}
-                else if (checkCount >= 2 && checkCount < 12) {{
-                    updateStatus("Service initializing...");
-                }}
-                else if (checkCount >= 12) {{
-                    updateStatus("This is taking longer than usual...");
-                }}
-
+                // checkService() no longer updates status - SSE handles it
             }} catch (error) {{
-                console.log("Check failed", error);
+                console.log("Check failed:", error);
             }}
 
             if (checkCount >= maxChecks) {{
