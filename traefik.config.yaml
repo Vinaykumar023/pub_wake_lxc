@@ -44,7 +44,7 @@ services:
           - url: "http://IP:3003"
         passHostHeader: true
         healthCheck:
-          path: "/"
+          path: "/healthz"
           interval: "10s"
           timeout: "5s"
     wake-photos:
@@ -54,7 +54,7 @@ services:
           - url: "http://IP:2283"
         passHostHeader: true
         healthCheck:
-          path: "/"
+          path: "/healthz"
           interval: "10s"
           timeout: "5s"
     wake-n8n:
@@ -64,7 +64,7 @@ services:
           - url: "http://IP:5678"
         passHostHeader: true
         healthCheck:
-          path: "/"
+          path: "/healthz"
           interval: "10s"
           timeout: "5s"
 middlewares:
