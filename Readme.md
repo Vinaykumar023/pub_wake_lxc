@@ -21,8 +21,9 @@
 - **Proxmox VE** server (tested with 8.x)
 - **Traefik** reverse proxy (for routing traffic)
 - **LXC Containers** running your services
-<img width="1861" height="888" alt="starting 3" src="https://github.com/user-attachments/assets/e054bb0b-ec5f-4c8e-96d2-b89aaea1da02" />
 <img width="1871" height="801" alt="red1" src="https://github.com/user-attachments/assets/ca4b2fe2-743a-4a9e-a8d5-c2619e203378" />
+<img width="1861" height="888" alt="starting 3" src="https://github.com/user-attachments/assets/e054bb0b-ec5f-4c8e-96d2-b89aaea1da02" />
+
 
 ### 🚀 Quick Start
 
