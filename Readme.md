@@ -26,8 +26,8 @@
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/wake-lxc.git
-cd wake-lxc
+git clone https://github.com/itsddpanda/pub_wake_lxc.git
+cd pub_wake-lxc
 ```
 
 ### 2. Create Proxmox API Token
@@ -95,7 +95,7 @@ curl -k -H "Authorization: PVEAPIToken=svc-wake@pve!wake=YOUR_TOKEN_VALUE" \\
 
 You should see a JSON list of containers.
 
-### 3. Set Up Secrets
+### 3. Set Up Secrets aka Token file
 
 ```bash
 # Create secrets directory
@@ -149,7 +149,7 @@ EOF
 
 ### 5. Configure Container Mappings
 
-Edit `config.yaml`:
+Edit provided example `config.yaml`:
 
 ```yaml
 # Wake-LXC Configuration
@@ -261,13 +261,6 @@ http:
         servers:
           - url: "http://wake-lxc:8080"
 
-  middlewares:
-    default-whitelist:
-      ipAllowList:
-        sourceRange:
-          - "YOUR_LAN_CIDR"              # e.g., 192.168.1.0/24
-          - "YOUR_DOCKER_FRONTEND_CIDR"  # e.g., 172.18.0.0/16
-          - "YOUR_DOCKER_BACKEND_CIDR"   # e.g., 172.19.0.0/16
 ```
 
 **Replace placeholders:**
