@@ -35,7 +35,10 @@ cd pub_wake-lxc
 ```
 
 ### 2. Create Proxmox API Token
-
+Can you use commands if that is suitable
+```bash
+https://github.com/itsddpanda/pub_wake_lxc/blob/a3c1e46f24c60102c1cba9e8eae357475b8759ca/pve_commands.md
+```
 #### Step 1: Create a Service User
 
 1. Log into your Proxmox web interface
