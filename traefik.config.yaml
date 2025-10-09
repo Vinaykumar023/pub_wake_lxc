@@ -1,0 +1,94 @@
+#Example router configuration for wake-managed services
+routers:
+    # === Wake-Managed Services (Route through wake-lxc) ===
+    # Docmost - Route through wake-lxc for starting page
+    docmost:
+      entryPoints:
+        - "https"
+      rule: "Host(`sub.domain.name`)"
+      middlewares:
+        - default-headers
+        - https-redirectscheme
+      tls: {}
+      service: wake-docmost
+    # Photos - Route through wake-lxc for starting page  
+    photos:
+      entryPoints:
+        - "https"
+      rule: "Host(`photos.191412.xyz`)"
+      middlewares:
+        - default-headers
+        - https-redirectscheme
+      tls: {}
+      service: wake-photos
+
+    # n8n - Route through wake-lxc for starting page
+    n8n:
+      entryPoints:
+        - "https"
+      rule: "Host(`n8n.191412.xyz`)"
+      middlewares:
+        - default-headers
+        - https-redirectscheme
+      tls: {}
+      service: wake-n8n
+    
+#add the service to your routers
+services:
+    # === Wake-LXC Proxy Service ===
+    # All wake-managed services route through this
+    wake-docmost:
+      loadBalancer:
+        servers:
+          - url: "http://wake-lxc:8080"
+          - url: "http://IP:3003"
+        passHostHeader: true
+        healthCheck:
+          path: "/"
+          interval: "10s"
+          timeout: "5s"
+    wake-photos:
+      loadBalancer:
+        servers:
+          - url: "http://wake-lxc:8080"
+          - url: "http://IP:2283"
+        passHostHeader: true
+        healthCheck:
+          path: "/"
+          interval: "10s"
+          timeout: "5s"
+    wake-n8n:
+      loadBalancer:
+        servers:
+          - url: "http://wake-lxc:8080"
+          - url: "http://IP:5678"
+        passHostHeader: true
+        healthCheck:
+          path: "/"
+          interval: "10s"
+          timeout: "5s"
+middlewares:
+    # HTTPS Redirect
+    https-redirectscheme:
+      redirectScheme:
+        scheme: https
+        permanent: true
+        
+    # Security Headers
+    default-headers:
+      headers:
+        frameDeny: true
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 31536000
+        customFrameOptionsValue: "SAMEORIGIN"
+        referrerPolicy: "strict-origin-when-cross-origin"
+        customRequestHeaders:
+          X-Forwarded-Proto: "https"
+          X-Forwarded-Port: "443"
+        customResponseHeaders:
+          Server: ""
+          X-Powered-By: ""

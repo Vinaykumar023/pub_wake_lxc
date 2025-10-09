@@ -1,0 +1,33 @@
+services:
+  wake-lxc:
+    build: .
+    container_name: wake-lxc
+    networks:
+      - frontend
+      - backend
+    restart: unless-stopped
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./logs:/app/logs:rw
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+      - ./secrets/proxmox_token_value.txt:/run/secrets/proxmox_token_value:ro
+    
+    environment:
+      PROXMOX_TOKEN_VALUE_FILE: /run/secrets/proxmox_token_value
+    
+    env_file:
+      - .env
+    
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/healthz', timeout=5).read()"]
+      interval: 120s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  frontend:
+    external: true
+  backend:
+    external: true

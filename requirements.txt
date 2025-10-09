@@ -1,0 +1,5 @@
+fastapi==0.115.0
+httpx[http2]==0.27.2
+PyYAML==6.0.2
+uvicorn[standard]==0.30.6
+websockets==12.0

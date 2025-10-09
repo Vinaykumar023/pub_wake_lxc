@@ -1,0 +1,34 @@
+# Wake-LXC Configuration - Working Version
+# Proxmox credentials now loaded from environment variables (.env)
+
+global:
+  idle_minutes: 10
+#future CIDR checks  
+  allowed_cidrs:
+    - 172.18.0.0/16
+    - 172.19.0.0/16
+
+containers:
+  - vmid: VMID
+    kind: lxc
+    idle_minutes: 60
+    stop_mode: shutdown
+    services:
+      - name: docmost
+        host: HOST_IP
+        port: 3003
+        domain: sub.domian.name
+      - name: immich
+        host: HOST_IP
+        port: 2283
+        domain: sub.domain.name
+  
+  - vmid: 106
+    kind: lxc
+    idle_minutes: 120
+    stop_mode: shutdown
+    services:
+      - name: n8n
+        host: HOST_IP
+        port: 5678
+        domain: sub.domain.name
