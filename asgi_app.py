@@ -1115,7 +1115,7 @@ async def health_detailed():
         )
 @app.websocket("/{full_path:path}")
 async def proxy_ws(websocket: WebSocket, full_path: str):
-    """WebSocket proxy with query string preservation for Socket.IO"""
+    """WebSocket proxy with container wake support and service readiness check"""
     host = websocket.headers.get('x-forwarded-host') or websocket.headers.get('host')
     display_name = get_display_name(host)
     backend_url = HOST_MAP.get(host)
@@ -1130,95 +1130,186 @@ async def proxy_ws(websocket: WebSocket, full_path: str):
     full_url_path = f"/{full_path}" + (f"?{query_string}" if query_string else "")
     ws_url = backend_url.replace('http://', 'ws://').replace('https://', 'wss://') + full_url_path
     
-    await websocket.accept()
     backend_ws = None
     client_closed = False
     backend_closed = False
     
     try:
-        # Forward important headers from the client to the backend
-        extra_headers = {}
+        # Check container status BEFORE accepting WebSocket
+        container = get_container_by_domain(host)
         
-        # Forward authentication headers
-        if 'cookie' in websocket.headers:
-            extra_headers['Cookie'] = websocket.headers['cookie']
-        
-        if 'authorization' in websocket.headers:
-            extra_headers['Authorization'] = websocket.headers['authorization']
-        
-        # Forward other potentially important headers
-        if 'origin' in websocket.headers:
-            extra_headers['Origin'] = websocket.headers['origin']
-        
-        if 'user-agent' in websocket.headers:
-            extra_headers['User-Agent'] = websocket.headers['user-agent']
-        
-        if DEBUG_MODE:
-            logger.debug(f"Forwarding headers to WebSocket backend: {list(extra_headers.keys())}")
-        
-        async with websockets.connect(ws_url, extra_headers=extra_headers) as backend_ws:
-            container = get_container_by_domain(host)
-            if container:
-                update_activity(container)
-        
-            async def to_backend():
-                nonlocal client_closed
-                try:
-                    while True:
-                        msg = await websocket.receive()
-                        if msg['type'] == 'websocket.disconnect':
-                            disconnect_code = msg.get('code', 1000)
-                            if disconnect_code == 1000:
-                                logger.info(f"WebSocket clean disconnect for {display_name}")
-                            else:
-                                logger.warning(f"WebSocket abnormal disconnect for {display_name}: code {disconnect_code}")
-                            if not backend_closed:
-                                await backend_ws.close()
+        if container:
+            vmid = str(container['vmid'])
+            kind = container.get('kind', 'lxc')
+            
+            # Check if container is running
+            is_running = await check_container_status(vmid, kind)
+            
+            if not is_running:
+                # Container is stopped - start it
+                logger.info(f"VMID {vmid}: WebSocket request to stopped container for {display_name}, starting...")
+                
+                if vmid not in container_locks:
+                    container_locks[vmid] = asyncio.Lock()
+                
+                async with container_locks[vmid]:
+                    # Double-check after acquiring lock
+                    is_running = await check_container_status(vmid, kind)
+                    
+                    if not is_running:
+                        if check_circuit_breaker(vmid):
+                            logger.warning(f"VMID {vmid}: Circuit breaker is OPEN for WebSocket request")
+                            await websocket.accept()
+                            await websocket.close(code=1011, reason="Service temporarily unavailable")
                             return
-                        elif msg['type'] == 'websocket.receive':
-                            data = msg.get('text')
-                            if data is not None:
-                                await backend_ws.send(data)
-                            else:
-                                bin_data = msg.get('bytes')
-                                if bin_data is not None:
-                                    await backend_ws.send(bin_data)
-                except Exception:
-                    client_closed = True
-                    return
-        
-            async def to_client():
-                nonlocal backend_closed
-                try:
-                    while True:
-                        msg = await backend_ws.recv()
-                        if isinstance(msg, bytes):
-                            await websocket.send_bytes(msg)
-                        else:
-                            await websocket.send_text(msg)
-                except websockets.ConnectionClosed:
-                    backend_closed = True
-                    if not client_closed:
+                        
+                        # Start the container
+                        success = await start_container(vmid, kind, host)
+                        
+                        if not success:
+                            logger.error(f"VMID {vmid}: Failed to start container for WebSocket connection")
+                            await websocket.accept()
+                            await websocket.close(code=1011, reason="Failed to start service")
+                            return
+            
+            # Check if container just started (within last 2 minutes)
+            if vmid in container_start_times:
+                start_time = container_start_times[vmid]
+                time_since_start = (datetime.now() - start_time).total_seconds()
+                
+                # If container started recently, wait for service to be ready
+                if time_since_start < 120:  # 2 minutes
+                    logger.info(f"VMID {vmid}: Container recently started ({time_since_start:.0f}s ago), waiting for service readiness...")
+                    service_ready = False
+                    max_wait = 120 - int(time_since_start)  # Wait up to 2 minutes total from start
+                    wait_attempts = max(1, max_wait // 2)
+                    
+                    for attempt in range(wait_attempts):
+                        await asyncio.sleep(2)
+                        
+                        # Try HTTP health check
                         try:
-                            await websocket.close()
+                            async with httpx.AsyncClient(timeout=2.0, verify=False) as test_client:
+                                test_response = await test_client.get(f"{backend_url}/")
+                            
+                            if test_response.status_code < 500:
+                                service_ready = True
+                                logger.info(f"VMID {vmid}: Service ready for WebSocket after {time_since_start + (attempt + 1) * 2:.0f}s")
+                                break
+                        
                         except Exception:
-                            pass
-                    return
-                except Exception:
-                    backend_closed = True
-                    return
+                            if DEBUG_MODE and attempt % 10 == 0:
+                                logger.debug(f"VMID {vmid}: Service not ready (attempt {attempt + 1}/{wait_attempts})")
+                            continue
+                    
+                    if not service_ready:
+                        logger.warning(f"VMID {vmid}: Service not ready after waiting, WebSocket may fail")
         
-            await asyncio.gather(to_backend(), to_client())
-    
-    except Exception as e:
-        logger.error(f"WebSocket proxy error for {display_name}: {e}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-    finally:
-        if backend_ws and not backend_ws.closed:
+        # Accept WebSocket connection
+        await websocket.accept()
+        
+        # Now attempt to connect to backend with retries
+        max_retries = 3
+        retry_delay = 2
+        connection_successful = False
+        
+        for retry in range(max_retries):
             try:
-                await backend_ws.close()
-            except Exception:
-                pass
+                # Forward important headers
+                extra_headers = {}
+                
+                if 'cookie' in websocket.headers:
+                    extra_headers['Cookie'] = websocket.headers['cookie']
+                
+                if 'authorization' in websocket.headers:
+                    extra_headers['Authorization'] = websocket.headers['authorization']
+                
+                if 'origin' in websocket.headers:
+                    extra_headers['Origin'] = websocket.headers['origin']
+                
+                if 'user-agent' in websocket.headers:
+                    extra_headers['User-Agent'] = websocket.headers['user-agent']
+                
+                if DEBUG_MODE:
+                    logger.debug(f"Forwarding headers to WebSocket backend: {list(extra_headers.keys())}")
+                
+                async with websockets.connect(ws_url, extra_headers=extra_headers) as backend_ws:
+                    # Connection successful
+                    connection_successful = True
+                    
+                    if container:
+                        update_activity(container)
+                    
+                    logger.info(f"connection open")
+                    
+                    async def to_backend():
+                        nonlocal client_closed
+                        try:
+                            while True:
+                                msg = await websocket.receive()
+                                if msg['type'] == 'websocket.disconnect':
+                                    disconnect_code = msg.get('code', 1000)
+                                    if disconnect_code == 1000:
+                                        logger.info(f"WebSocket clean disconnect for {display_name}")
+                                    else:
+                                        logger.warning(f"WebSocket abnormal disconnect for {display_name}: code {disconnect_code}")
+                                    if not backend_closed:
+                                        await backend_ws.close()
+                                    return
+                                elif msg['type'] == 'websocket.receive':
+                                    data = msg.get('text')
+                                    if data is not None:
+                                        await backend_ws.send(data)
+                                    else:
+                                        bin_data = msg.get('bytes')
+                                        if bin_data is not None:
+                                            await backend_ws.send(bin_data)
+                        except Exception:
+                            client_closed = True
+                            return
+                    
+                    async def to_client():
+                        nonlocal backend_closed
+                        try:
+                            while True:
+                                msg = await backend_ws.recv()
+                                if isinstance(msg, bytes):
+                                    await websocket.send_bytes(msg)
+                                else:
+                                    await websocket.send_text(msg)
+                        except websockets.ConnectionClosed:
+                            backend_closed = True
+                            if not client_closed:
+                                try:
+                                    await websocket.close()
+                                except Exception:
+                                    pass
+                            return
+                        except Exception:
+                            backend_closed = True
+                            return
+                    
+                    await asyncio.gather(to_backend(), to_client())
+                    
+                    # Connection completed successfully, break retry loop
+                    break
+            
+            except (OSError, ConnectionRefusedError, websockets.exceptions.WebSocketException) as e:
+                if retry < max_retries - 1:
+                    logger.warning(f"WebSocket connection attempt {retry + 1} failed for {display_name}: {e}, retrying in {retry_delay}s...")
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(f"WebSocket proxy error for {display_name} after {max_retries} attempts: {e}")
+                    if DEBUG_MODE:
+                        logger.error(f"Traceback: {traceback.format_exc()}")
+            
+            except Exception as e:
+                logger.error(f"WebSocket proxy error for {display_name}: {e}")
+                if DEBUG_MODE:
+                    logger.error(f"Traceback: {traceback.format_exc()}")
+                break
+    
+    finally:
         logger.info(f"WebSocket cleanup completed for {display_name}")
 
 @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
