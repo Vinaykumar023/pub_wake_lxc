@@ -202,7 +202,7 @@ containers:
 
 #### `containers[]`
 - **vmid**: Proxmox container ID (e.g., `100`, `106`, `111`)
-- **kind**: Container type - `lxc` for LXC containers, `vm` for VMs
+- **kind**: Container type - `lxc` for LXC containers, `qemu` for VMs
 - **idle_minutes**: Minutes of inactivity before auto-stop (overrides global setting)
 - **stop_mode**: Shutdown method
   - `shutdown` - Graceful shutdown (recommended)
